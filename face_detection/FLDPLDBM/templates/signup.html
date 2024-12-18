@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Registration</title>
+    {% load static %}
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet">
+    <!--Stylesheet-->
+    <style media="screen">
+        * {
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background-image: url("{% static 'images/Impact.jpg' %}");
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            font-family: 'Cambria', serif; /* Changed font to Cambria */
+            margin: 0;
+            padding: 20px;
+            background-color: #333; /* Dark background color */
+        }
+        form {
+            height: 600px;
+            width: 450px;
+            background-color: rgba(0, 0, 0, 0.7); /* Darker form background */
+            position: absolute;
+            transform: translate(-50%, -50%);
+            top: 50%;
+            left: 50%;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.9); /* Darker shadow */
+            padding: 50px 35px;
+        }
+        form * {
+            font-family: 'Cambria', serif; /* Ensure Cambria is used */
+            color: #fff; /* White text color for better contrast */
+            letter-spacing: 0.5px;
+            outline: none;
+            border: none;
+        }
+        form h3 {
+            font-size: 32px;
+            font-weight: 500;
+            line-height: 42px;
+            text-align: center;
+            color: #f09819; /* Add some color contrast to the heading */
+        }
+        label {
+            display: block;
+            margin-top: 20px;
+            font-size: 16px;
+            font-weight: 500;
+            color: #ffcc00; /* Yellow labels for better readability */
+        }
+        input {
+            display: block;
+            height: 40px;
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.07);
+            border-radius: 5px;
+            padding: 0 10px;
+            margin-top: 5px;
+            font-size: 14px;
+            font-weight: 300;
+            color: #fff; /* White text in inputs */
+        }
+        ::placeholder {
+            color: #e5e5e5;
+        }
+        button {
+            margin-top: 20px;
+            width: 100%;
+            background-color: #ffcc00; /* Yellow button */
+            color: #080710;
+            padding: 15px 0;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #f09819; /* Darker hover effect */
+        }
+        a {
+            color: #ffcc00; /* Yellow link */
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        a:hover {
+            color: #f09819; /* Darker link on hover */
+        }
+    </style>
+</head>
+<body>
+    <h1>Register</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Register</button>
+        Already have an account? <a href="{% url 'login' %}">Log In</a>
+    </form>
+    
+</body>
+</html>

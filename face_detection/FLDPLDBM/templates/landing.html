@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Upload or Capture Image</title>
+        {% load static %}
+        <link rel="stylesheet" type="text/css" href="{% static 'landing.css' %}">
+        <script>
+            let videoStream;
+            function requestConsent() {
+                if (confirm("We need your consent to access the camera for capturing an image.")) {
+                    document.getElementById("camera-section").style.display = "block";
+                    startCamera();
+                    console.log("User consented.");
+                }
+            }
+            function startCamera() {
+                const video = document.getElementById("video");
+                navigator.mediaDevices
+                    .getUserMedia({ video: true })
+                    .then((stream) => {
+                        videoStream = stream;
+                        video.srcObject = stream;
+                        video.play();
+                        console.log("Camera started.");
+                    })
+                    .catch((err) => {
+                        alert("Unable to access camera: " + err.message);
+                    });
+            }
+            function captureImage() {
+                const canvas = document.getElementById("canvas");
+                const video = document.getElementById("video");
+                const context = canvas.getContext("2d");
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                console.log("Image captured.");
+                canvas.toBlob((blob) => {
+                    if (videoStream) {
+                        videoStream.getTracks().forEach((track) => track.stop());
+                    }
+                    uploadImage(blob);
+                    console.log("Image blob:", blob);
+                }, "image/jpeg");
+            }
+            function uploadImage(blob) {
+                const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]").value;
+                const formData = new FormData();
+                formData.append("image", blob);
+                console.log("Image blob data received:", formData);
+                fetch("/landing/", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": csrfToken,
+                    },
+                    body: formData,
+                })
+                    .then((response) => {
+                        if (!response.ok) {
+                            return response.json().then((err) => {
+                                throw new Error(err.message || "Server error occurred.");
+                                console.log("Server not found");
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then((result) => {
+                        alert(result.message || "Image uploaded successfully!");
+                        window.location.reload(); // Reload the page after successful upload
+                    })
+                    .catch((error) => {
+                        console.error("Error:", error);
+                        alert("An error occurred while uploading the image.");
+                        console.log("Server found not responding");
+                    });
+            }
+            function retakeEmbedding(embedding_Id, createdAt) {
+                if (confirm("Are you sure you want to delete Embedding ID: " + embedding_Id + " and retake it?")) {
+                    const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]").value;
+                    console.log("Embedding ID:", embedding_Id);
+                    console.log("Created At:", createdAt);
+                    fetch("/delete_embedding/", {
+                        method: "POST",
+                        headers: {
+                            "X-CSRFToken": csrfToken,
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            embedding_id: embedding_Id,  // Embedding ID for identification on frontend
+                            created_at: createdAt       // Created at timestamp used for deletion
+                        }),
+                    })
+                    .then((response) => {
+                        if (!response.ok) {
+                            return response.json().then((err) => {
+                                throw new Error(err.message || "Server error occurred.");
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then((result) => {
+                        alert(result.message || "Embedding deleted successfully! Please retake the image.");
+                        window.location.reload(); // Reload the page after successful upload
+                    })
+                    .catch((error) => {
+                        console.error("Error:", error);
+                        alert("An error occurred while deleting the embedding.");
+                    });
+                }
+            }
+        </script>
+    </head>
+    <body>
+        {% csrf_token %}
+        <h1>Welcome, {{ username }}!</h1>
+        <h2>Embeddings Information</h2>
+        <p>You have stored {{ num_embeddings }} out of {{ max_embeddings }} allowed embeddings.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Embedding ID</th>
+                    <th>Date Created</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for embedding in embedding_info %}
+                <tr>
+                    <td>{{ embedding.embedding_id }}</td>
+                    <td>{{ embedding.created_at }}</td>
+                    <td>
+                        <button onclick="retakeEmbedding('{{ embedding.embedding_id }}', '{{ embedding.created_at }}')">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if num_embeddings < max_embeddings %}
+        <button id="camera-access-button" onclick="requestConsent()">Add New Embedding</button>
+        <div id="camera-section" style="display: none;">
+            <video id="video" width="320" height="240" autoplay></video>
+            <canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
+            <br />
+            <button onclick="captureImage()">Capture</button>
+        </div>
+    {% endif %}
+        <a href="{% url 'logout' %}">Log Out</a>
+    </body>
+</html>
