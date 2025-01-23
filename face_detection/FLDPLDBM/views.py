@@ -3,10 +3,13 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
 from .forms import SignupForm
-from neo4j import GraphDatabase
+from neo4j import GraphDatabase, Neo4jDriver
 import numpy as np
 import cv2
 import json
+import ast
+from collections import defaultdict  # Add this line
+import numpy as np
 from keras_facenet import FaceNet
 from django.http import JsonResponse, HttpResponse
 from datetime import datetime, timezone
@@ -16,14 +19,16 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from sklearn.metrics.pairwise import cosine_similarity
 from django.urls import path
+import numpy as np
+import json
+from sklearn.metrics.pairwise import cosine_similarity
 
-NEO4J_URI = 'neo4j+s://abf9edae.databases.neo4j.io'
+NEO4J_URI = 'neo4j+s://9094f4bc.databases.neo4j.io'
 NEO4J_USER = 'neo4j'
-NEO4J_PASSWORD = '7LbESA2foTba6tOIh5I4V2R9l_65t2PeI1IG1Vq2-8I'
+NEO4J_PASSWORD = 'djWulnOU1qIkc5j_64OUnlI7h6EJjoOQjJ5O_0IbbmE'
 
 # Initialize FaceNet model
 embedder = FaceNet()
-
 
 class Neo4jHandler:
     def __init__(self, uri, user, password):
@@ -37,7 +42,8 @@ class Neo4jHandler:
             session.run("CREATE (p:Person {id: $username})", username=username)
 
     def create_image_node(self, username, embedding):
-        creating_at = datetime.now(timezone.utc).isoformat()
+        created_at = datetime.now(timezone.utc).isoformat()
+        embedding_flatten = embedding.flatten().tolist()  # Convert to JSON string
         with self.driver.session() as session:
             session.run(
                 """
@@ -46,51 +52,57 @@ class Neo4jHandler:
                 CREATE (p)-[:HAS_IMAGE]->(img)
                 """,
                 username=username,
-                embedding=embedding.tolist(),
-                created_at=creating_at
+                embedding=embedding_flatten,
+                created_at=created_at
             )
-###################Added by Samuel##################
-    # def find_similar_person(self, new_embedding):
-    #     def normalize(embedding):
-    #         return embedding / np.linalg.norm(embedding)
 
-    #     new_embedding = normalize(new_embedding)
-    #     with self.driver.session() as session:
-    #         result = session.run("MATCH (p:Person)-[:HAS_IMAGE]->(img:Image) RETURN p.id AS person_id, img.embedding AS embedding")
-    #         embeddings = [(record["person_id"], normalize(np.array(record["embedding"]))) for record in result]
-
-    #     similarities = [(person_id, cosine_similarity([new_embedding], [embedding])[0][0]) for person_id, embedding in embeddings]
-    #     similar_persons = sorted(similarities, key=lambda x: x[1], reverse=True)[:10]
-    #     return similar_persons
 
     def find_similar_person(self, new_embedding):
         with self.driver.session() as session:
-            result = session.run("MATCH (p:Person)-[:HAS_IMAGE]->(img:Image) RETURN p.id AS person_id, img.embedding AS embedding")
-            embeddings = [(record["person_id"], np.array(record["embedding"])) for record in result]
-
-        # Calculate cosine similarities
-        similarities = [(person_id, cosine_similarity([new_embedding], [embedding])[0][0])
-                        for person_id, embedding in embeddings]
-        # Sort and return the top 3
-        similar_persons = sorted(similarities, key=lambda x: x[1], reverse=True)[:10]
-        return similar_persons
-#####################################
-
+            result = session.run("""
+                MATCH (p:Person)-[:HAS_IMAGE]->(img:Image)
+                RETURN p.id AS person_id, img.embedding AS embeddings
+            """)
+            
+            # Group embeddings by person using defaultdict
+            person_embeddings = defaultdict(list)  # Now works!
+            for record in result:
+                person_id = record["person_id"]
+                embedding = np.array(record["embeddings"])
+                person_embeddings[person_id].append(embedding)
+        
+        # Rest of your code...
+            
+            # Average embeddings per person in Python
+            avg_embeddings = []
+            for person_id, embeddings in person_embeddings.items():
+                avg_embedding = np.mean(embeddings, axis=0)
+                avg_embeddings.append((person_id, avg_embedding))
+            
+            # Calculate similarities
+            similarities = [
+                (person_id, cosine_similarity([new_embedding], [avg_embedding])[0][0])
+                for person_id, avg_embedding in avg_embeddings
+            ]
+            return sorted(similarities, key=lambda x: x[1], reverse=True)[:3]
+    
     def get_user_embeddings(self, username):
-        with self.driver.session() as session:
-            result = session.run(
-                """
+        try:
+            query = """
                 MATCH (p:Person {id: $username})-[:HAS_IMAGE]->(img:Image)
                 RETURN img.embedding AS embedding, img.created_at AS created_at
-                """,
-                username=username
-            )
+            """
+            with self.driver.session() as session:
+                result = session.run(query, username=username)
+                records = list(result)  # Convert to list to prevent consumption
+                
             return [
-                {"embedding": record["embedding"],
-                    "created_at": record["created_at"]}
-                for record in result
+                {"embedding": record["embedding"], "created_at": record["created_at"]}
+                for record in records
             ]
-
+        except Exception as e:
+            print(f"Error in get_user_embeddings: {e}")
+            return []
 
 def signup_view(request):
     if request.method == 'POST':
@@ -140,17 +152,12 @@ def logoutPage(request):
 
 
 def process_image_and_get_embedding(image_data):
-    # Decode the image from memory
+    # Removed normalization to match Code 1/2
     np_arr = np.frombuffer(image_data, np.uint8)
     img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-    # Preprocess the image
     img_resized = cv2.resize(img, (160, 160))
-    img_preprocessed = img_resized.astype(
-        'float32') / 255.0  # Normalize to [0, 1]
-    img_array = np.expand_dims(img_preprocessed, axis=0)  # Add batch dimension
-    # Generate embeddings
-    embedding = embedder.embeddings(img_array)[0]  # Extract single embedding
-    return embedding
+    img_array = np.expand_dims(img_resized, axis=0)  # No division by 255
+    return embedder.embeddings(img_array)[0]
 
 
 @login_required
@@ -249,6 +256,8 @@ class FaceRecognitionAPI(View):
     camera_thread = None
     stop_event = threading.Event()
     recognized_persons = []
+    lock = threading.Lock()
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
     @method_decorator(csrf_exempt)
     def dispatch(self, *args, **kwargs):
@@ -257,8 +266,7 @@ class FaceRecognitionAPI(View):
     @classmethod
     def start_camera(cls):
         cls.stop_event.clear()
-        cap = cv2.VideoCapture(0)  # Start camera
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        cap = cv2.VideoCapture(0)
         neo4j_handler = Neo4jHandler(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
 
         while not cls.stop_event.is_set():
@@ -267,48 +275,39 @@ class FaceRecognitionAPI(View):
                 continue
 
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(frame, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+            faces = cls.face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
-# faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
-            if len(faces) == 0:
-                continue
-
-            display_text = "No face detected"  # Default message
-
+            current_frame_recognitions = []
             for (x, y, w, h) in faces:
+                # Face processing
                 face = frame[y:y+h, x:x+w]
                 face = cv2.resize(face, (160, 160))
-                face = np.expand_dims(face, axis=0)
-                
-                new_embedding = embedder.embeddings(face)[0]
+                face_array = np.expand_dims(face, axis=0)
+                new_embedding = embedder.embeddings(face_array)[0]
 
+                # Get similarities
                 similar_persons = neo4j_handler.find_similar_person(new_embedding)
-                cls.recognized_persons = [{"id": person_id, "similarity": similarity}
-                                        for person_id, similarity in similar_persons]
+                
+                # Determine if top 3 belong to the same person
+                if len(similar_persons) >= 1:
+                    main_person, max_similarity = similar_persons[0]
+                    if all(person == main_person for person, _ in similar_persons[:3]):
+                        # Draw green box and name for confirmed match
+                        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                        cv2.putText(frame, f"{main_person} ({max_similarity:.2f})", 
+                                   (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
+                    else:
+                        # Draw yellow box for uncertain matches
+                        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 255), 2)
 
-                # Take the first recognized person (highest similarity)
-                if cls.recognized_persons:
-                    top_match = cls.recognized_persons[0]
-                    person_id = top_match['id']
-                    similarity = top_match['similarity']
-                    display_text = f"ID: {person_id}, Similarity: {similarity:.2f}"
-                else:
-                    display_text = "Unknown person"
+                current_frame_recognitions.extend(similar_persons)
 
-                break  # Process one face at a time
+            # Thread-safe update
+            with cls.lock:
+                cls.recognized_persons = current_frame_recognitions
 
-            # Overlay text on the OpenCV frame
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = 0.5
-            font_color = (0, 255, 0)  # Green
-            thickness = 1
-            position = (10, 30)  # Top-left corner
-
-            cv2.putText(frame, display_text, position, font, font_scale, font_color, thickness, cv2.LINE_AA)
-
-            # Display the OpenCV frame
-            cv2.imshow("Recognition", frame)
+            # Show live preview window
+            cv2.imshow("Face Recognition - Press Q to quit", frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
@@ -316,64 +315,27 @@ class FaceRecognitionAPI(View):
         cv2.destroyAllWindows()
         neo4j_handler.close()
 
-    # def start_camera(cls):
-    #     cls.stop_event.clear()
-    #     cap = cv2.VideoCapture(0)  # Start camera
-    #     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    #     neo4j_handler = Neo4jHandler(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
-
-    #     while not cls.stop_event.is_set():
-    #         ret, frame = cap.read()
-    #         if not ret:
-    #             continue
-
-    #         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    #         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
-    #         if len(faces) == 0:
-    #             continue
-
-    #         for (x, y, w, h) in faces:
-    #             face = frame[y:y+h, x:x+w]
-    #             face = cv2.resize(face, (160, 160))
-    #             face = np.expand_dims(face, axis=0)
-    #             new_embedding = embedder.embeddings(face)[0]
-
-    #             similar_persons = neo4j_handler.find_similar_person(new_embedding)
-    #             cls.recognized_persons = [{"id": person_id, "similarity": similarity}
-    #                                       for person_id, similarity in similar_persons]
-    #             break  # Process one face at a time
-
-    #         # Display OpenCV frame
-    #         cv2.imshow("Recognition", frame)
-    #         if cv2.waitKey(1) & 0xFF == ord('q'):
-    #             break
-
-    #     cap.release()
-    #     cv2.destroyAllWindows()
-    #     neo4j_handler.close()
-
     @classmethod
     def stop_camera(cls):
         cls.stop_event.set()
         if cls.camera_thread and cls.camera_thread.is_alive():
-            cls.camera_thread.join()
+            cls.camera_thread.join(timeout=2)
             cls.camera_thread = None
 
     def post(self, request, action):
         if action == "start":
             if self.camera_thread and self.camera_thread.is_alive():
-                return JsonResponse({"error": "Recognition is already running."}, status=400)
-
+                return JsonResponse({"error": "Already running"}, status=400)
+                
             self.camera_thread = threading.Thread(target=self.start_camera)
+            self.camera_thread.daemon = True  # Allow server to exit cleanly
             self.camera_thread.start()
-            return JsonResponse({"message": "Recognition started."})
+            return JsonResponse({"message": "Camera started"})
 
         elif action == "stop":
             self.stop_camera()
-            return JsonResponse({
-                "message": "Recognition stopped.",
-                "recognized_persons": self.recognized_persons
-            })
+            with self.lock:
+                results = self.recognized_persons.copy()
+            return JsonResponse({"recognized": results})
 
-        return JsonResponse({"error": "Invalid action."}, status=400)
+        return JsonResponse({"error": "Invalid action"}, status=400)
