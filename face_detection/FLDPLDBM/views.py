@@ -291,7 +291,7 @@ class FaceRecognitionAPI(View):
                 # Determine if top 3 belong to the same person
                 if len(similar_persons) >= 1:
                     main_person, max_similarity = similar_persons[0]
-                    if all(person == main_person for person, _ in similar_persons[:3]):
+                    if all(person == main_person for person, _ in similar_persons[:1]):
                         # Draw green box and name for confirmed match
                         cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
                         cv2.putText(frame, f"{main_person} ({max_similarity:.2f})", 
