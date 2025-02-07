@@ -1,4 +1,4 @@
-### **PrivifyAI's Solution: Privacy by Design**  
+# **PrivifyAI's Solution: Privacy by Design**  
 PrivifyAI isn’t just another face recognition tool—it’s a **privacy-first application** that combines three revolutionary technologies to protect user data without compromising performance:  
 
 1️⃣ **Federated Learning**  
