@@ -50,6 +50,6 @@ How can we ensure AI respects privacy? Share your thoughts below! Let’s work t
 📚 **Keywords**: AI Ethics, Privacy-Preserving AI, Federated Learning, Homomorphic Encryption, Face Recognition, Django, Neo4j, OpenCV  
 
 👩‍💻👨‍💻 Developed by:  
-ksj047.github.io , Michael V Thomas, Syed Abdul Rehman, and Yadunandan B C at **Impact College of Engineering and Applied Sciences, Bangalore**.  
+Michael V Thomas, Samuel Joshua K, Syed Abdul Rehman, and Yadunandan B C at **Impact College of Engineering and Applied Sciences, Bangalore**.  
 
 #AIEthics #PrivacyFirst #FederatedLearning #HomomorphicEncryption #FaceRecognition #Django #Neo4j #OpenCV #EthicalAI #FutureOfTech
