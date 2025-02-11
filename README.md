@@ -45,7 +45,9 @@ In a world increasingly wary of surveillance, PrivifyAI proves that innovation a
 🌟 **Join the Conversation** 🌟  
 How can we ensure AI respects privacy? Share your thoughts below! Let’s work together to shape a future where ethical AI is the norm.  
 
-🔗 Explore the code on GitHub and dive into the technical whitepaper [here].  
+🔗 Explore the code on GitHub and dive into the technical whitepaper 
+
+[https://github.com/yadux20/Privify-AI/blob/1c1981898662c71480c04f09fcf6347e86e72ec8/Yadunandan_report.pdf].  
 
 📚 **Keywords**: AI Ethics, Privacy-Preserving AI, Federated Learning, Homomorphic Encryption, Face Recognition, Django, Neo4j, OpenCV  
 
